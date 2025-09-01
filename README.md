@@ -1,4 +1,6 @@
-WebSocket Chat App
+**WebSocket Chat App
+**
+
 A real-time chat application with room support built using Socket.IO and Node.js.
 
 Features
@@ -21,4 +23,5 @@ Below are some screenshots demonstrating the app in action:
 <img width="3199" height="1751" alt="image" src="https://github.com/user-attachments/assets/4373bfdd-ab7d-4370-a05a-edfccaed14a7" />
 <img width="3196" height="1763" alt="image" src="https://github.com/user-attachments/assets/7672b087-e350-41ba-a37f-7d96de97a63c" />
 <img width="3195" height="1755" alt="image" src="https://github.com/user-attachments/assets/e9f0fb01-2f65-4be8-aea5-abdcf090460b" />
+
 
