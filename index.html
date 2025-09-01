@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Socket.IO chat</title>
+    <style>
+      body {
+        margin: 0;
+        padding-bottom: 3rem;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+      }
+
+      #form {
+        background: rgba(0, 0, 0, 0.15);
+        padding: 0.25rem;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        display: flex;
+        height: 3rem;
+        box-sizing: border-box;
+        backdrop-filter: blur(10px);
+      }
+      #input {
+        border: none;
+        padding: 0 1rem;
+        flex-grow: 1;
+        border-radius: 2rem;
+        margin: 0.25rem;
+      }
+      #input:focus {
+        outline: none;
+      }
+      #form > button {
+        background: #333;
+        border: none;
+        padding: 0 1rem;
+        margin: 0.25rem;
+        border-radius: 3px;
+        outline: none;
+        color: #fff;
+      }
+
+      #messages {
+        list-style-type: none;
+        margin: 0;
+        padding: 0;
+      }
+      #messages > li {
+        padding: 0.5rem 1rem;
+      }
+      #messages > li:nth-child(odd) {
+        background: #efefef;
+      }
+      #nickname {
+        border: none;
+        padding: 0 1rem;
+        border-radius: 2rem;
+        margin: 0.25rem;
+        width: 150px;
+        background-color: rgba(255, 255, 255, 0.8);
+      }
+
+      #nickname:focus {
+        outline: none;
+      }
+
+      #roomSelect {
+        border: none;
+        padding: 0 1rem;
+        border-radius: 2rem;
+        margin: 0.25rem;
+        width: 120px;
+        background-color: rgba(255, 255, 255, 0.8);
+      }
+
+      #roomSelect:focus {
+        outline: none;
+      }
+    </style>
+  </head>
+  <body>
+    <ul id="messages"></ul>
+    <form id="form" action="">
+      <select id="roomSelect"></select>
+      <input id="nickname" placeholder="Nickname" autocomplete="off" />
+      <input id="input" autocomplete="off" /><button>Send</button>
+    </form>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      let counter = 0;
+      let currentRoom = "general"; // Default room
+
+      const socket = io({
+        ackTimeout: 10000,
+      });
+
+      const form = document.getElementById("form");
+      const input = document.getElementById("input");
+      const messages = document.getElementById("messages");
+      const nicknameInput = document.getElementById("nickname");
+      const roomSelect = document.getElementById("roomSelect");
+
+      // Populate room options
+      const rooms = ["general", "tech", "random", "news"];
+      rooms.forEach((room) => {
+        const option = document.createElement("option");
+        option.value = room;
+        option.textContent = room.charAt(0).toUpperCase() + room.slice(1);
+        roomSelect.appendChild(option);
+      });
+
+      // Load nickname from localStorage if available
+      if (localStorage.getItem("nickname")) {
+        nicknameInput.value = localStorage.getItem("nickname");
+      }
+
+      // Load room from localStorage if available
+      if (localStorage.getItem("room")) {
+        roomSelect.value = localStorage.getItem("room");
+        currentRoom = roomSelect.value;
+      }
+
+      // Join the default room on connection
+      socket.on("connect", () => {
+        socket.emit("join room", currentRoom);
+      });
+
+      // Handle room changes
+      roomSelect.addEventListener("change", () => {
+        const newRoom = roomSelect.value;
+
+        // Leave current room and join new one
+        socket.emit("leave room", currentRoom);
+        socket.emit("join room", newRoom);
+
+        // Store room preference
+        localStorage.setItem("room", newRoom);
+
+        // Clear messages when changing rooms
+        clearMessages();
+
+        currentRoom = newRoom;
+      });
+
+      // Clear messages helper function
+      function clearMessages() {
+        while (messages.firstChild) {
+          messages.removeChild(messages.firstChild);
+        }
+      }
+
+      // Form submission
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        if (input.value) {
+          localStorage.setItem("nickname", nicknameInput.value || "Anonymous");
+
+          const clientOffset = `${socket.id}-${counter++}`;
+
+          socket.emit(
+            "chat message",
+            {
+              nickname: nicknameInput.value || "Anonymous",
+              text: input.value,
+              room: currentRoom,
+            },
+            clientOffset
+          );
+
+          input.value = "";
+        }
+      });
+
+      // Handle received messages
+      socket.on("chat message", (msg, serverOffset) => {
+        console.log("Received message:", msg);
+
+        const item = document.createElement("li");
+
+        if (typeof msg === "object" && msg.nickname && msg.text) {
+          item.innerHTML = `<strong>${msg.nickname}</strong>: ${msg.text}`;
+        } else {
+          item.textContent = msg;
+        }
+
+        messages.appendChild(item);
+        window.scrollTo(0, document.body.scrollHeight);
+
+        if (serverOffset) {
+          socket.auth = socket.auth || {};
+          socket.auth.serverOffset = serverOffset;
+        }
+      });
+
+      // Add this after your other socket.on handlers
+      socket.on("message history", (msgs) => {
+        console.log(`Received ${msgs.length} messages from history`);
+
+        // Hide existing messages without removing them
+        const existingMessages = messages.querySelectorAll("li");
+        existingMessages.forEach((msg) => {
+          msg.style.display = "none";
+        });
+
+        // Display each message in the history
+        msgs.forEach((msg) => {
+          const item = document.createElement("li");
+
+          // Add a data attribute to identify which room this message belongs to
+          item.dataset.room = msg.room;
+
+          if (msg.nickname) {
+            item.innerHTML = `<strong>${msg.nickname}</strong>: ${
+              msg.content || msg.text
+            }`;
+          } else {
+            item.textContent = msg.content || msg.text || JSON.stringify(msg);
+          }
+
+          messages.appendChild(item);
+        });
+
+        window.scrollTo(0, document.body.scrollHeight);
+      });
+    </script>
+  </body>
+</html>
